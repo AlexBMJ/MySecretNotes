@@ -1,5 +1,5 @@
-import json, sqlite3, click, functools, os, hashlib,time, random, sys
-from flask import Flask, current_app, g, session, redirect, render_template, url_for, request
+import sqlite3, functools, os, time, random, sys, subprocess
+from flask import Flask, session, redirect, render_template, url_for, request, jsonify
 
 
 
@@ -73,22 +73,18 @@ def notes():
             note = request.form['noteinput']
             db = connect_db()
             c = db.cursor()
-            statement = """INSERT INTO notes(id,assocUser,dateWritten,note,publicID) VALUES(null,%s,'%s','%s',%s);""" %(session['userid'],time.strftime('%Y-%m-%d %H:%M:%S'),note,random.randrange(1000000000, 9999999999))
-            print(statement)
-            c.execute(statement)
+            c.execute("INSERT INTO notes(id,assocUser,dateWritten,note,publicID) VALUES(null,?,?,?,?);", (session['userid'],time.strftime('%Y-%m-%d %H:%M:%S'),note,random.randrange(1000000000, 9999999999)))
             db.commit()
             db.close()
         elif request.form['submit_button'] == 'import note':
             noteid = request.form['noteid']
             db = connect_db()
             c = db.cursor()
-            statement = """SELECT * from NOTES where publicID = %s""" %noteid
-            c.execute(statement)
+            c.execute("SELECT * from NOTES where publicID = ?", (noteid, ))
             result = c.fetchall()
             if(len(result)>0):
                 row = result[0]
-                statement = """INSERT INTO notes(id,assocUser,dateWritten,note,publicID) VALUES(null,%s,'%s','%s',%s);""" %(session['userid'],row[2],row[3],row[4])
-                c.execute(statement)
+                c.execute("INSERT INTO notes(id,assocUser,dateWritten,note,publicID) VALUES(null,?,?,?,?);", (session['userid'],row[2],row[3],row[4]))
             else:
                 importerror="No such note with that ID!"
             db.commit()
@@ -96,9 +92,7 @@ def notes():
     
     db = connect_db()
     c = db.cursor()
-    statement = "SELECT * FROM notes WHERE assocUser = %s;" %session['userid']
-    print(statement)
-    c.execute(statement)
+    c.execute("SELECT * FROM notes WHERE assocUser = ?;", (session['userid'], ))
     notes = c.fetchall()
     print(notes)
     
@@ -113,8 +107,7 @@ def login():
         password = request.form['password']
         db = connect_db()
         c = db.cursor()
-        statement = "SELECT * FROM users WHERE username = '%s' AND password = '%s';" %(username, password)
-        c.execute(statement)
+        c.execute("SELECT * FROM users WHERE username = ? AND password = ?;", (username, password))
         result = c.fetchall()
 
         if len(result) > 0:
@@ -140,24 +133,22 @@ def register():
         password = request.form['password']
         db = connect_db()
         c = db.cursor()
-        pass_statement = """SELECT * FROM users WHERE password = '%s';""" %password
-        user_statement = """SELECT * FROM users WHERE username = '%s';""" %username
-        c.execute(pass_statement)
+
+        c.execute("SELECT * FROM users WHERE password = ?;", (password,))
         if(len(c.fetchall())>0):
             errored = True
             passworderror = "That password is already in use by someone else!"
 
-        c.execute(user_statement)
+        c.execute("SELECT * FROM users WHERE username = ?;", (username,))
         if(len(c.fetchall())>0):
             errored = True
             usererror = "That username is already in use by someone else!"
 
         if(not errored):
-            statement = """INSERT INTO users(id,username,password) VALUES(null,'%s','%s');""" %(username,password)
-            print(statement)
-            c.execute(statement)
+            c.execute("INSERT INTO users(id,username,password) VALUES(null,?,?);", (username, password))
             db.commit()
             db.close()
+
             return f"""<html>
                         <head>
                             <meta http-equiv="refresh" content="2;url=/" />
@@ -173,12 +164,37 @@ def register():
     return render_template('register.html',usererror=usererror,passworderror=passworderror)
 
 
+@app.route("/admin/")
+@login_required
+def admin():
+    return render_template('admin.html')
+
+@app.route("/admin/date/")
+@login_required
+def get_date():
+    if request.method == "GET":
+        year = request.args['year']
+        month = request.args['month']
+        day = request.args['day']
+
+        user_input = f"{year}/{month}/{day}"
+
+        try:
+            d =  subprocess.run([f"date -d {user_input}"], shell=True, capture_output=True, text=True)
+            return jsonify({"success": True, "date": d.stdout})
+        except Exception as e:
+            print(e)
+            return jsonify({"success": False})
+
+
 @app.route("/logout/")
 @login_required
 def logout():
     """Logout: clears the session"""
     session.clear()
     return redirect(url_for('index'))
+
+
 
 if __name__ == "__main__":
     #create database if it doesn't exist yet

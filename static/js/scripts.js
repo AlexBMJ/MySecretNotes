@@ -31,6 +31,27 @@
 		}
     });
 
+    $('#show-date').click(function(e) {
+        const year = $('#year').val();
+        const month = $('#month').val();
+        const day = $('#day').val();
+        
+        fetch(`/admin/date?` + new URLSearchParams({
+            year,
+            month,
+            day
+        }))
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.date != '') {
+                    $('.output').text(data.date);
+                } else {
+                    $('.output').text(`Please type a valid date!`);
+                }
+            })
+            .catch(error => console.log("ERROR", error));
+    });
+
 	// jQuery for page scrolling feature - requires jQuery Easing plugin
 	$(function() {
 		$(document).on('click', 'a.page-scroll', function(event) {
