@@ -7,3 +7,13 @@ services:
       - '5000:80'
     environment:
       - TZ=Europe/Copenhagen
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.msn.entrypoints=web
+      - traefik.http.routers.msn.rule=(Host(`secu07.itu.dk`) && PathPrefix(`/mysecretnotes`))
+    networks:
+      - traefik_default
+
+networks:
+  traefik_default:
+    external: true
