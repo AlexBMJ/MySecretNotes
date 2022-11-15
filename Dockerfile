@@ -1,5 +1,7 @@
 FROM python:3.10-alpine
 
+RUN apk update && apk add curl wget netcat-openbsd
+
 WORKDIR /app
 
 COPY requirements.txt ./
