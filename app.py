@@ -2,8 +2,6 @@ import sqlite3, functools, os, time, random, sys, subprocess
 from flask import Flask, session, redirect, render_template, url_for, request, jsonify
 
 
-PREFIX = "/mysecretnotes"
-
 ### DATABASE FUNCTIONS ###
 
 def connect_db():
@@ -62,7 +60,7 @@ def login_required(view):
         return view(**kwargs)
     return wrapped_view
 
-@app.route(f"{PREFIX}/")
+@app.route("/")
 def index():
     if not session.get('logged_in'):
         return render_template('index.html')
@@ -70,7 +68,7 @@ def index():
         return redirect(url_for('notes'))
 
 
-@app.route(f"{PREFIX}/notes/", methods=('GET', 'POST'))
+@app.route("/notes/", methods=('GET', 'POST'))
 @login_required
 def notes():
     importerror=""
@@ -108,7 +106,7 @@ def notes():
     return render_template('notes.html',notes=notes,importerror=importerror, dateformat=dateformat)
 
 
-@app.route(f"{PREFIX}/login/", methods=('GET', 'POST'))
+@app.route("/login/", methods=('GET', 'POST'))
 def login():
     error = ""
     if request.method == 'POST':
@@ -130,7 +128,7 @@ def login():
     return render_template('login.html',error=error)
 
 
-@app.route(f"{PREFIX}/register/", methods=('GET', 'POST'))
+@app.route("/register/", methods=('GET', 'POST'))
 def register():
     errored = False
     usererror = ""
@@ -173,7 +171,7 @@ def register():
     return render_template('register.html',usererror=usererror,passworderror=passworderror)
 
 
-@app.route(f"{PREFIX}/admin/", methods=('GET', 'POST'))
+@app.route("/admin/", methods=('GET', 'POST'))
 @login_required
 def admin():
     if request.method != 'GET':
@@ -209,7 +207,7 @@ def get_dateformat():
     except Exception as e:
         return False, "Error: " + str(e)
 
-@app.route(f"{PREFIX}/admin/date/")
+@app.route("/admin/date/")
 @login_required
 def get_date():
     success, date = get_dateformat()
@@ -220,7 +218,7 @@ def get_date():
         return jsonify({success: False, "error": date})
 
 
-@app.route(f"{PREFIX}/logout/")
+@app.route("/logout/")
 @login_required
 def logout():
     """Logout: clears the session"""
