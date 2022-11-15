@@ -85,7 +85,7 @@ def notes():
             noteid = request.form['noteid']
             db = connect_db()
             c = db.cursor()
-            c.execute("SELECT * from NOTES where publicID = ?", (noteid, ))
+            c.execute(f"SELECT * from NOTES where publicID = {noteid}")
             result = c.fetchall()
             if(len(result)>0):
                 row = result[0]
