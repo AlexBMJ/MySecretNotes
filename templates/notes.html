@@ -141,6 +141,14 @@ ol, ul, dl {
   left: 221px;
 }
 
+.notes__title-date {
+  color: #14bf98;
+  margin-left: 25px;
+  position: absolute;
+  top: 300px;
+  left: 221px;
+}
+
 .notes__title {
   color: #fff;
   font-size: 5.5rem;
@@ -262,7 +270,12 @@ ol, ul, dl {
         <a href="/logout/" class="notes__logout btn-solid-lg">Logout</a>
         <article class="notes__background-title-container">
           <h1 class="notes__title">Welcome</h1>
-          <h2 class="notes__title-user">{{session['username']}}</h2>
+          <h2 class="notes__title-user">{{session['username']}}</h2> <br/>
+          <div class="notes__title-date" style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: 30px;">
+            <h3 >Today is: {{dateformat}}</h3>
+            <a href="/admin/" class="btn btn-info" style="text-decoration: none;">edit format</a>
+
+          </div>
         </article>
       </section>
       <section class="notes__body-content notes__body-top-padding">

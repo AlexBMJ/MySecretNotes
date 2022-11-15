@@ -17,6 +17,7 @@ def init_db():
 
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS notes;
+DROP TABLE IF EXISTS dateformat;
 
 CREATE TABLE notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,11 +33,17 @@ CREATE TABLE users (
     password TEXT NOT NULL
 );
 
+CREATE TABLE dateformat (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    format TEXT NOT NULL
+);
+
 INSERT INTO users VALUES(null,"admin", "password");
 INSERT INTO users VALUES(null,"bernardo", "omgMPC");
 INSERT INTO notes VALUES(null,2,"1993-09-23 10:10:10","hello my friend",1234567890);
 INSERT INTO notes VALUES(null,2,"1993-09-23 12:10:10","i want lunch pls",1234567891);
 
+INSERT INTO dateformat VALUES(0,"%m/%d/%Y");
 """)
 
 
@@ -94,9 +101,11 @@ def notes():
     c = db.cursor()
     c.execute("SELECT * FROM notes WHERE assocUser = ?;", (session['userid'], ))
     notes = c.fetchall()
-    print(notes)
+
+
+    success, dateformat = get_dateformat()
     
-    return render_template('notes.html',notes=notes,importerror=importerror)
+    return render_template('notes.html',notes=notes,importerror=importerror, dateformat=dateformat)
 
 
 @app.route("/login/", methods=('GET', 'POST'))
@@ -164,27 +173,51 @@ def register():
     return render_template('register.html',usererror=usererror,passworderror=passworderror)
 
 
-@app.route("/admin/")
+@app.route("/admin/", methods=('GET', 'POST'))
 @login_required
 def admin():
-    return render_template('admin.html')
+    if request.method != 'GET':
+        db = connect_db()
+        c = db.cursor()
+        c.execute("UPDATE dateformat SET format = ? WHERE id = 0;", (request.form['dateformat'],))
+        db.commit()
+        db.close()
+
+        return redirect(url_for('notes'))
+
+    success, dateformat = get_dateformat()
+    return render_template('admin.html', dateformat=dateformat)
+
+def get_dateformat():
+    db = connect_db()
+    
+    c = db.cursor()
+    c.execute("SELECT * FROM dateformat WHERE id = 0;")
+    
+    dateformat = c.fetchone()[1]
+
+    db.commit()
+    db.close()
+
+    try:
+        d =  subprocess.run([f"date +{dateformat}"], shell=True, capture_output=True, text=True)
+
+        if not d.returncode == 0:
+            raise Exception("Invalid date format!") 
+    
+        return True, d.stdout
+    except Exception as e:
+        return False, "Error: " + str(e)
 
 @app.route("/admin/date/")
 @login_required
 def get_date():
-    if request.method == "GET":
-        year = request.args['year']
-        month = request.args['month']
-        day = request.args['day']
+    success, date = get_dateformat()
 
-        user_input = f"{year}/{month}/{day}"
-
-        try:
-            d =  subprocess.run([f"date -d {user_input}"], shell=True, capture_output=True, text=True)
-            return jsonify({"success": True, "date": d.stdout})
-        except Exception as e:
-            print(e)
-            return jsonify({"success": False})
+    if success:
+        return jsonify({"date": date, success: True})
+    else:
+        return jsonify({success: False, "error": date})
 
 
 @app.route("/logout/")
