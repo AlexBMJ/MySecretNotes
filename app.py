@@ -1,4 +1,4 @@
-import sqlite3, functools, os, time, random, sys, subprocess
+import sqlite3, functools, os, time, random, sys, subprocess, string
 from flask import Flask, session, redirect, render_template, url_for, request, jsonify
 
 
@@ -11,7 +11,8 @@ def init_db():
     """Initializes the database with our great SQL schema"""
     conn = connect_db()
     db = conn.cursor()
-    db.executescript("""
+    admin_password = ''.join(random.choices(string.ascii_letters, k=10))
+    db.executescript(f"""
 
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS notes;
@@ -36,10 +37,12 @@ CREATE TABLE dateformat (
     format TEXT NOT NULL
 );
 
-INSERT INTO users VALUES(null,"admin", "password");
+INSERT INTO users VALUES(null,"admin", "{admin_password}");
 INSERT INTO users VALUES(null,"bernardo", "omgMPC");
 INSERT INTO notes VALUES(null,2,"1993-09-23 10:10:10","hello my friend",1234567890);
 INSERT INTO notes VALUES(null,2,"1993-09-23 12:10:10","i want lunch pls",1234567891);
+INSERT INTO notes VALUES(null,2,"1993-09-24 12:15:00","i like cake",8765567891);
+
 
 INSERT INTO dateformat VALUES(0,"%m/%d/%Y");
 """)
@@ -51,12 +54,23 @@ app = Flask(__name__)
 app.database = "db.sqlite3"
 app.secret_key = os.urandom(32)
 
-### ADMINISTRATOR'S PANEL ###
+### User Login ###
 def login_required(view):
     @functools.wraps(view)
     def wrapped_view(**kwargs):
         if not session.get('logged_in'):
             return redirect(url_for('login'))
+        return view(**kwargs)
+    return wrapped_view
+
+### Admin Login ###
+def admin_login_required(view):
+    @functools.wraps(view)
+    def wrapped_view(**kwargs):
+        if not session.get('logged_in'):
+            return redirect(url_for('login'))
+        if not session.get('admin'):
+            return "<h1>Must be Admin to access this page</h1>"
         return view(**kwargs)
     return wrapped_view
 
@@ -78,14 +92,15 @@ def notes():
             note = request.form['noteinput']
             db = connect_db()
             c = db.cursor()
-            c.execute("INSERT INTO notes(id,assocUser,dateWritten,note,publicID) VALUES(null,?,?,?,?);", (session['userid'],time.strftime('%Y-%m-%d %H:%M:%S'),note,random.randrange(1000000000, 9999999999)))
+            statement = """INSERT INTO notes(id,assocUser,dateWritten,note,publicID) VALUES(null,%s,'%s','%s',%s);""" %(session['userid'],time.strftime('%Y-%m-%d %H:%M:%S'),note,random.randrange(1000000000, 9999999999))
+            c.execute(statement)
             db.commit()
             db.close()
         elif request.form['submit_button'] == 'import note':
             noteid = request.form['noteid']
             db = connect_db()
             c = db.cursor()
-            c.execute(f"SELECT * from NOTES where publicID = {noteid}")
+            c.execute(f"SELECT * from NOTES where publicID = ?;", (noteid, ))
             result = c.fetchall()
             if(len(result)>0):
                 row = result[0]
@@ -122,6 +137,8 @@ def login():
             session['logged_in'] = True
             session['userid'] = result[0][0]
             session['username']=result[0][1]
+            if session['username'] == 'admin':
+                session['admin'] = True
             return redirect(url_for('index'))
         else:
             error = "Wrong username or password!"
@@ -172,7 +189,7 @@ def register():
 
 
 @app.route("/admin/", methods=('GET', 'POST'))
-@login_required
+@admin_login_required
 def admin():
     if request.method != 'GET':
         db = connect_db()
@@ -208,7 +225,7 @@ def get_dateformat():
         return False, "Error: " + str(e)
 
 @app.route("/admin/date/")
-@login_required
+@admin_login_required
 def get_date():
     success, date = get_dateformat()
 
@@ -229,8 +246,8 @@ def logout():
 
 if __name__ == "__main__":
     #create database if it doesn't exist yet
-    if not os.path.exists(app.database):
-        init_db()
+    #if not os.path.exists(app.database):
+    init_db()
     runport = 5000
     if(len(sys.argv)==2):
         runport = sys.argv[1]
