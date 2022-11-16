@@ -4,13 +4,14 @@ services:
   app:
     build: .
     ports:
-      - '5000:80'
+      - '9000:5000'
     environment:
       - TZ=Europe/Copenhagen
     labels:
       - traefik.enable=true
       - traefik.http.routers.msn.entrypoints=web
-      - traefik.http.routers.msn.rule=(Host(`secu07.itu.dk`) && PathPrefix(`/mysecretnotes`))
+      - traefik.http.routers.msn.rule=(Host(`secu07.itu.dk`) && PathPrefix(`/`))
+        #- traefik.http.middlewares.msn.stripprefix.prefixes=/mysecretnotes
     networks:
       - traefik_default
 
